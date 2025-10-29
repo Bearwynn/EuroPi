@@ -37,8 +37,8 @@ def make_bit_array(length):
         byte_length = length >> 3
     return bytearray(byte_length)
 
-
-def get_bit(arr, index):
+@micropython.viper
+def get_bit(arr, index: int) -> int:
     """Get the value of the bit at the nth position in a bytearray
 
     Bytes are stored most significant bit first, so the 8th bit of [1] comes immediately after
@@ -49,13 +49,18 @@ def get_bit(arr, index):
 
     :return: 0 or 1, depending on the state at position index
     """
+    # Convert to viper types for maximum performance
+    arr_ptr = ptr8(arr)
+    idx = int(index)
+    
     # Use bitwise operations instead of integer division and modulo operations to keep things fast
-    byte = arr[index >> 3]
-    mask = 1 << ((8 - index - 1) & 0x07)
-    bit = 1 if byte & mask else 0
-    return bit
+    byte_index = idx >> 3
+    bit_pos = 7 - (idx & 0x07)  # Calculate bit position (MSB first)
+    byte_val = arr_ptr[byte_index]
+    
+    return 1 if (byte_val >> bit_pos) & 1 else 0
 
-
+@micropython.viper
 def set_bit(arr, index, value):
     """Set the bit at the nth position in a bytearray
 
@@ -66,14 +71,23 @@ def set_bit(arr, index, value):
     :param index:  The bit position within the array
     :param value:  A truthy value indicating whether the bit should be set to 1 or 0
     """
+    # Convert to viper types for maximum performance
+    arr_ptr = ptr8(arr)
+    idx = int(index)
+    val = int(value)
+    
     # Use bitwise operations instead of integer division and modulo operations to keep things fast
-    byte = arr[index >> 3]
-    mask = 1 << ((8 - index - 1) & 0x07)
-    if value:
-        byte = byte | mask
+    byte_index = idx >> 3
+    bit_pos = 7 - (idx & 0x07)  # Calculate bit position (MSB first)
+    mask = 1 << bit_pos
+    current_byte = arr_ptr[byte_index]
+    
+    if val:
+        # Set the bit
+        arr_ptr[byte_index] = current_byte | mask
     else:
-        byte = byte & ~mask
-    arr[index >> 3] = byte
+        # Clear the bit
+        arr_ptr[byte_index] = current_byte & (0xFF ^ mask)
 
 
 def set_all_bits(arr, value=0):
